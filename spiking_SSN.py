@@ -26,7 +26,7 @@ sigma_0I = 0.5*mV  # mV
 P_E = 0.1
 P_I = 0.4
 tau_syn = 2*ms  # ms
-delta = 0.5*ms  # ms
+axon_delay = 0.5 * ms  # ms
 l_syn = 45  # deg
 l_noise = 60  # deg
 l_stim = 60  # deg
@@ -62,21 +62,33 @@ def h_i(t):
 # Delta Function
 @check_units(t=ms)
 def delta(t):
-    return scipy.signal.unit_impulse(100, int(t/ms)-1)
+    t_j = 'firing times of neuron j'
+    return scipy.signal.unit_impulse(len(t_j), int(t/ms)-1)
+
+
+# Sum of delta(t - t_j - ax_delay)
+def sum_delta(t_j):
+    summed = 0
+    for t in t_j:
+        summed = summed + delta(t)
+    return summed
 
 
 # Membrane Potential
 Vm_eqs = '''
+dv/dt = -v/tau_noise + V_rest/tau_noise + h_i/tau_noise + sigma*sqrt(2/tau_noise)*xi + : 1
+a_tot : 1
 
 '''
 
 # Post-synaptic Current
-cur_eqs = '''
-dv/dt = -v/tau_noise + V_rest/tau_noise + h_i(t)/tau_noise + sigma*sqrt(2/tau_noise)*xi +
+syn_eqs = '''
+da/dt = -a/tau_syn + sum_delta(t_j-axon_delay) : 1
+a_tot_post = J_ij*a : 1 (summed)
 '''
 
 test_rate = r(30*mV)/dt
-test_delta = delta(5*ms)
+test_delta = axon_delay(5 * ms)
 
 temp = 5
 
