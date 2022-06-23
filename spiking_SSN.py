@@ -3,10 +3,16 @@ import random
 import scipy as sp
 import scipy.signal
 import numpy as np
+import pickle
+from brian2 import *
 import brian2
 from brian2.units import ms, mV, second, Hz, kHz
 from brian2 import check_units
 import matplotlib.pyplot as plt
+
+brian2.seed(74)
+
+prefs.codegen.target = "numpy"
 
 # Parameters
 N_E = 40
@@ -20,22 +26,22 @@ n = 2
 k = 0.3*(mV**-n)/second  # mV^(-n)*s^(-1)
 W_EE = 1.25*mV*second  # mV*s, E -> E
 W_IE = 1.2*mV*second  # mV*s, E -> I
-W_EI = 0.65*mV*second  # mV*s, I -> E
-W_II = 0.5*mV*second  # mV*s, I -> I
+W_EI = -0.65*mV*second  # mV*s, I -> E
+W_II = -0.5*mV*second  # mV*s, I -> I
 tau_noise = 50*ms  # ms
 sigma_0E = 1*mV  # mV
 sigma_0I = 0.5*mV  # mV
 P_E = 0.1
 P_I = 0.4
 tau_syn = 2*ms  # ms
-axon_delay = 0.5 * ms  # ms
+axon_delay = 0.5*ms  # ms
 l_syn = 45  # deg
 l_noise = 60  # deg
 l_stim = 60  # deg
 b = 2*mV  # mV
 A_max = 20*mV  # mV
 theta_stim = 0  # deg
-time_step = 0.1 * ms  # ms
+time_step = 0.1*ms  # ms
 c = 1  # contrast
 
 
@@ -76,20 +82,6 @@ J_sources, J_targets = J.nonzero()
 weights = J.flatten()
 
 
-# Momentary Spiking Rate
-@check_units(v=mV,result=Hz)
-def r(v):
-    rate = (k*((np.floor((v-V_0)/mV)*mV)**n))
-
-    if v.size > 1:
-        for rate_idx, rate_idv in enumerate(rate):
-            rate[rate_idx] = rate_idv if v[rate_idx]-V_0 > 0 else 0*Hz
-    else:
-        rate = rate if v-V_0 > 0 else 0*Hz
-
-    return rate
-
-
 # Mean External Input
 @check_units(t=ms)
 def h_i(t):
@@ -127,42 +119,65 @@ a_tot_post = J_ij*a : 1 (summed)
 # Stochastic Firing Probability
 threshold = 'rand() < time_step*r(v)'
 
-# Validate Firing Rates
 
-test_voltages = np.arange(-80,-50,1)  #
+# Momentary Spiking Rate
+@check_units(v=mV,result=Hz)
+def r(v):
+    rate = (k*((np.floor((v-V_0)/mV)*mV)**n))
+
+    if v.size > 1:
+        for rate_idx, rate_idv in enumerate(rate):
+            rate[rate_idx] = rate_idv if v[rate_idx]-V_0 > 0 else 0*Hz
+    else:
+        rate = rate if v-V_0 > 0 else 0*Hz
+
+    return rate
+
+
+# Validate Firing Rates
+fig, axs = plt.subplots(1,2,figsize=(10,5),sharey=True)
+axs = axs.ravel()
+
+low_voltage = -80
+high_voltage = -50
+num_neurons = 30
+
+test_voltages = np.linspace(low_voltage,high_voltage,num_neurons)  #
 test_rates = [r(test_voltage*mV)/Hz for test_voltage in test_voltages]
 
-plt.figure(1)
-plt.plot(test_voltages,test_rates)
-plt.xlabel('membrane potential (mV)')
-plt.ylabel('instantaneous firing rate (Hz)')
-plt.xticks(np.arange(-80,-40,10))
-plt.title('Calculated')
-plt.show()
+axs[0].plot(test_voltages,test_rates)
+axs[0].set_xlabel('membrane potential (mV)')
+axs[0].set_ylabel('instantaneous firing rate (Hz)')
+axs[0].set_xticks(np.arange(low_voltage,high_voltage+10,10))
+axs[0].set_title('Calculated')
 
 fixed_Vm_eqs = '''
 v : volt
 '''
 
-fixed_G = brian2.NeuronGroup(len(test_voltages), fixed_Vm_eqs, threshold='rand() < time_step*r(v)', reset='v = V_rest', dt=time_step)
+fixed_G = brian2.NeuronGroup(len(test_voltages), fixed_Vm_eqs, threshold='rand() < time_step*r(v)', dt=time_step)
 fixed_G.v = test_voltages*mV
 fixed_M = brian2.SpikeMonitor(fixed_G, variables='v', record=True)
 
-brian2.run(1*second)
+duration = 9*second
+
+brian2.run(duration, report="text")
 
 voltages = fixed_M.v
 spike_trains = fixed_M.spike_trains()
 spike_counts = fixed_M.count
-spike_rates = spike_counts/time_step
+spike_rates = spike_counts/duration
 all_values = fixed_M.all_values()
 
-plt.figure(2)
-plt.plot(test_voltages, list(spike_rates))
-plt.xlabel('membrane potential (mV)')
-plt.ylabel('firing rate (Hz)')
-plt.xticks(test_voltages)
-plt.title('Simulated')
-plt.show()
+axs[1].plot(test_voltages, list(spike_rates))
+axs[1].set_xlabel('membrane potential (mV)')
+axs[1].set_ylabel('firing rate (Hz)')
+axs[1].set_xticks(np.arange(low_voltage,high_voltage+10,10))
+axs[1].set_title('Stimulated')
+
+fig.tight_layout()
+fig.show()
+fig.savefig(f'output/spiking_SSN-{num_neurons}-{int(duration/second)}s.jpg',bbox_inches='tight')
 
 temp = 5
 
