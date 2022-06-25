@@ -24,7 +24,7 @@ V_rest = -70*mV  # mV
 V_0 = -70*mV  # mV
 n = 2
 k = 0.3*(mV**-n)/second  # mV^(-n)*s^(-1)
-weight_scale = 5
+weight_scale = 1
 W_EE = 1.25*mV*weight_scale  # mV, E -> E
 W_IE = 1.2*mV*weight_scale  # mV, E -> I
 W_EI = -0.65*mV*weight_scale  # mV, I -> E
@@ -60,9 +60,9 @@ def r(v):
 
 
 # h = TimedArray([0*mV, 2*mV, 2*mV, 15*mV, 15*mV], dt=2*second)
-input_voltages = np.arange(0,20,1)
+input_voltages = np.arange(0,20,1)*mV
 input_dur = 1*second
-h = TimedArray(input_voltages*mV, dt=input_dur)
+h = TimedArray(input_voltages, dt=input_dur)
 
 noise_E = '''
 sqrt(2*tau_noise*(sigma_0E*sqrt(1+(tau_E/tau_noise)))**2)*xi
@@ -75,19 +75,21 @@ dv/dt = (-v + V_rest + h(t) + sqrt(2*tau_noise*(sigma_0E*sqrt(1+(tau_E/tau_noise
 '''
 
 inh_V_eqs = '''
-dv/dt = (-v + V_rest + h(t)+ sqrt(2*tau_noise*(sigma_0I*sqrt(1+(tau_I/tau_noise)))**2)*xi)/tau_I : volt
+dv/dt = (-v + V_rest + h(t) + sqrt(2*tau_noise*(sigma_0I*sqrt(1+(tau_I/tau_noise)))**2)*xi)/tau_I : volt
 '''
 
-exc_G = NeuronGroup(N_E, exc_V_eqs, threshold='rand() < int(v>V_0)*time_step*(k*((floor((v-V_0)/mV)*mV)**n))', method='euler', dt=time_step)
-inh_G = NeuronGroup(N_I, inh_V_eqs, threshold='rand() < int(v>V_0)*time_step*(k*((floor((v-V_0)/mV)*mV)**n))', method='euler', dt=time_step)
+exc_G = NeuronGroup(N_E, exc_V_eqs, threshold='rand() < int(v>V_0)*time_step*(k*(v-V_0)**n)',
+                    method='euler', dt=time_step)
+inh_G = NeuronGroup(N_I, inh_V_eqs, threshold='rand() < int(v>V_0)*time_step*(k*(v-V_0)**n)',
+                    method='euler', dt=time_step)
 
 exc_G.v = V_rest
 inh_G.v = V_rest
 
-S_EE = Synapses(exc_G, exc_G, on_pre='v+=W_EE')
-S_IE = Synapses(exc_G, inh_G, on_pre='v+=W_IE')
-S_EI = Synapses(inh_G, exc_G, on_pre='v+=W_EI')
-S_II = Synapses(inh_G, inh_G, on_pre='v+=W_II')
+S_EE = Synapses(exc_G, exc_G, on_pre='v+=W_EE', delay=0.5*ms)
+S_IE = Synapses(exc_G, inh_G, on_pre='v+=W_IE', delay=0.5*ms)
+S_EI = Synapses(inh_G, exc_G, on_pre='v+=W_EI', delay=0.5*ms)
+S_II = Synapses(inh_G, inh_G, on_pre='v+=W_II', delay=0.5*ms)
 
 S_EE.connect(i=0,j=0)
 S_IE.connect(i=0,j=0)
@@ -115,6 +117,7 @@ exc_spike_times = exc_spike_M.t
 inh_spikes = inh_spike_M.i
 inh_spike_times = inh_spike_M.t
 
+
 np.save('output/data/debug/rate_SSN-exc_spikes.npy', exc_spikes)
 np.save('output/data/debug/rate_SSN-exc_spike_times.npy', exc_spike_times)
 np.save('output/data/debug/rate_SSN-inh_spikes.npy', inh_spikes)
@@ -134,6 +137,9 @@ exc_V = exc_M.v[0]
 
 inh_times = inh_M.t
 inh_V = inh_M.v[0]
+
+exc_std = np.std(exc_V)
+inh_std = np.std(inh_V)
 
 np.save('output/data/debug/rate_SSN-exc_times.npy', exc_times)
 np.save('output/data/debug/rate_SSN-exc_V.npy', exc_V)
