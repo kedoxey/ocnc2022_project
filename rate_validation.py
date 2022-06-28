@@ -31,7 +31,7 @@ def r(v):
 
 
 # Validate Firing Rates
-fig, axs = plt.subplots(1,2,figsize=(10,5),sharey=True)
+fig, axs = plt.subplots(1,2,figsize=(7,3),sharey=True)
 axs = axs.ravel()
 
 low_voltage = -75
@@ -47,6 +47,9 @@ axs[0].plot(test_voltages,test_rates,'k')
 axs[0].set_xlabel(r'$\rm{V_m\ [mV]}$')
 axs[0].set_ylabel(r'$\rm{rate\ [Hz]}$')
 axs[0].set_xticks(np.arange(low_voltage,high_voltage+5,5))
+axs[0].set_xlim((-75.5,-55))
+axs[0].set_yticks(np.arange(0,80,10))
+axs[0].set_ylim((-1,70))
 axs[0].set_title('Calculated')
 
 fixed_Vm_eqs = '''
@@ -77,6 +80,8 @@ np.save('output/data/rate_validation-test_rates.npy', test_rates)
 axs[1].plot(test_voltages, list(spike_rates),'k')
 axs[1].set_xlabel(r'$\rm{V_m\ [mV]}$')
 axs[1].set_xticks(np.arange(low_voltage,high_voltage+5,5))
+axs[1].set_xlim((-75.5,-55))
+axs[1].set_ylim((-1,70))
 axs[1].set_title('Stimulated')
 
 print(f'Calculated variance = {calc_var}')

@@ -59,10 +59,21 @@ def r(v):
     return rate
 
 
+run_step = False
+
 # h = TimedArray([0*mV, 2*mV, 2*mV, 15*mV, 15*mV], dt=2*second)
-input_voltages = np.arange(0,20,1)*mV
-input_dur = 1*second
+if run_step:
+    input_voltages = [0*mV, 2*mV, 2*mV, 15*mV, 15*mV]
+    input_dur = 2*second
+    run_flag = 'step'
+else:
+    input_voltages = np.arange(0,21,1)*mV
+    input_dur = 1*second
+    run_flag = 'cont'
+
 h = TimedArray(input_voltages, dt=input_dur)
+
+np.save(f'output/data/rate_SSN-input_voltages-{run_flag}.npy', input_voltages/mV)
 
 noise_E = '''
 sqrt(2*tau_noise*(sigma_0E*sqrt(1+(tau_E/tau_noise)))**2)*xi
@@ -118,10 +129,10 @@ inh_spikes = inh_spike_M.i
 inh_spike_times = inh_spike_M.t
 
 
-np.save('output/data/debug/rate_SSN-exc_spikes.npy', exc_spikes)
-np.save('output/data/debug/rate_SSN-exc_spike_times.npy', exc_spike_times)
-np.save('output/data/debug/rate_SSN-inh_spikes.npy', inh_spikes)
-np.save('output/data/debug/rate_SSN-inh_spike_times.npy', inh_spike_times)
+np.save(f'output/data/rate_SSN-exc_spikes-{run_flag}.npy', exc_spikes)
+np.save(f'output/data/rate_SSN-exc_spike_times-{run_flag}.npy', exc_spike_times)
+np.save(f'output/data/rate_SSN-inh_spikes-{run_flag}.npy', inh_spikes)
+np.save(f'output/data/rate_SSN-inh_spike_times-{run_flag}.npy', inh_spike_times)
 
 # Spike Times
 plt.figure(1)
@@ -141,20 +152,39 @@ inh_V = inh_M.v[0]
 exc_std = np.std(exc_V)
 inh_std = np.std(inh_V)
 
-np.save('output/data/debug/rate_SSN-exc_times.npy', exc_times)
-np.save('output/data/debug/rate_SSN-exc_V.npy', exc_V)
-np.save('output/data/debug/rate_SSN-inh_times.npy', inh_times)
-np.save('output/data/debug/rate_SSN-inh_V.npy', inh_V)
+np.save(f'output/data/rate_SSN-exc_times-{run_flag}.npy', exc_times)
+np.save(f'output/data/rate_SSN-exc_V-{run_flag}.npy', exc_V)
+np.save(f'output/data/rate_SSN-inh_times-{run_flag}.npy', inh_times)
+np.save(f'output/data/rate_SSN-inh_V-{run_flag}.npy', inh_V)
 
-plt.figure(2)
-plt.plot(list(exc_times/ms), list(exc_V/mV), label='E')
-plt.plot(list(inh_times/ms), list(inh_V/mV), label='I')
-plt.legend()
-plt.xlabel('time (ms)')
-plt.ylabel('membrane potential (mV)')
+exc_color = [255/255,0/255,0/255]
+inh_color = [0/255,130/255,255/255]
+
+fig, axs = plt.subplots(2,1,figsize=(6,5),sharex=True)
+axs = axs.ravel()
+
+axs[0].plot(list(exc_times), list(exc_V/mV), label='E', color=exc_color, zorder=12)
+axs[0].plot(list(inh_times), list(inh_V/mV), label='I', color=inh_color, zorder=12)
+axs[0].legend()
+axs[0].axvline(2, linestyle='dashed', color='grey', alpha=0.4, zorder=0)
+axs[0].axvline(6, linestyle='dashed', color='grey', alpha=0.4, zorder=0)
+axs[0].set_ylabel(r'$\rm{V_{E/I}\ [mV]}$')
+axs[0].set_ylim((-72,-47))
+axs[0].set_yticks(np.arange(-70,-45,5))
+
+input_x = [0, 2, 6, 10]
+input_y = [0, 0, 2, 15]
+axs[1].step(input_x, input_y, 'k')
+axs[1].set_xlabel(r'$\rm{time\ [s]}$')
+axs[1].set_ylim((-2,17))
+axs[1].set_yticks(np.arange(0,20,5))
+axs[1].set_ylabel(r'$\rm{input\ [mV]}$')
 # plt.ylim((-71,-55))
 # plt.xticks(np.arange(-70,-50,10))
 # plt.xticks(np.arange(0,15,5))
-plt.show()
+fig.show()
+
+fig.savefig(f'output/figures/rate_SSN-{run_flag}_input.jpg', bbox_inches='tight')
+fig.savefig(f'output/figures/rate_SSN-{run_flag}_input.pdf', bbox_inches='tight')
 
 temp = 5
